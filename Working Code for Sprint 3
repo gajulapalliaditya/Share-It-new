@@ -1,0 +1,1523 @@
+Dashboard:
+<?php
+error_reporting(0);
+include('dbconnect.php');
+session_start();
+
+if($_SESSION['userid'] == '')
+{
+    header("location:http://shareout.us");
+    exit;
+}
+
+if(isset($_POST) && $_POST['femail'] != '' && $_SESSION['userid'] != '')
+{
+
+    $query = mysql_query("select * from user_friends where friend_email='".$_POST['femail']."' and uid=".$_SESSION['userid']."");
+    $rows = mysql_num_rows($query);
+
+    if($rows ==1 || $_POST['femail'] == $_SESSION['emailid'])
+    {
+        echo $error = "You have already added this friend.";
+    }
+    else
+    {
+        $query = mysql_query("select * from users where Email_Id= '".$_POST['femail']."' ");
+        $rows = mysql_num_rows($query);
+        $result1 = mysql_fetch_assoc($query);
+
+        //echo $result1['id'];
+
+        if($result1['id'] != '')
+        {
+            $sql = mysql_query("INSERT INTO user_friends (uid, fuid, friend_name, friend_email, status) VALUES ('".$_SESSION['userid']."', '".$result1['id']."', '".$_POST['fname']."', '".$_POST['femail']."', '1')");
+
+            $sql1 = mysql_query("INSERT INTO user_friends (uid, fuid, friend_name, friend_email, status) VALUES ('".$result1['id']."', '".$_SESSION['userid']."', '".$_SESSION['name']."', '".$_SESSION['emailid']."', '1')");
+            echo $error = "Added Succesfully";
+        }
+        else
+        {
+
+           
+            $sql = mysql_query("INSERT INTO user_friends (uid, friend_name, friend_email) VALUES ('".$_SESSION['userid']."', '".$_POST['fname']."', '".$_POST['femail']."')");
+            echo $error = "Added Succesfully";
+        }   
+
+        $query = mysql_query("select * from users where Email_Id='".$_POST['femail']."'");
+        $rows = mysql_num_rows($query);
+if($rows ==0)
+    {
+        $to = $_POST['femail'];
+         $subject = "Request to join ShareIt";
+         
+         $message = "Hi ".$_POST['fname'].", <br><br>Your friend has invited you to join this site. Please click the below link.<br><br>http://shareout.us<br><br>Thankyou,<br>Shareout.";
+         //$message .= "<h1>This is headline.</h1>";
+         //echo $message;exit;
+         $header = "From:gajulapalli.aditya@gmail.com \r\n";
+         //$header = "Cc:afgh@somedomain.com \r\n";
+         $header .= "MIME-Version: 1.0\r\n";
+         $header .= "Content-type: text/html\r\n";
+         
+         $retval = mail ($to,$subject,$message,$header);
+         
+         if( $retval == true )
+         {
+            echo $error= "Message sent successfully...";
+         }
+         else
+         {
+            echo $error= "Message could not be sent...";
+         }
+     }
+    }
+}
+
+if(isset($_POST) && $_POST['groupname'] != '')
+{
+    $query = mysql_query("select * from groups where group_name='".$_POST['groupname']."'");
+    $rows = mysql_num_rows($query);
+
+    if($rows ==1)
+    {
+       echo  $error = "This group name already existing. Please try another one.";
+    }
+    else
+    {
+        $date= date('Y-m-d H:i:s');
+        $sql = mysql_query("INSERT INTO groups (user_id, group_name, createddate) VALUES ('".$_SESSION['userid']."', '".$_POST['groupname']."', '".$date."')");
+       
+        $lastid = mysql_insert_id();
+
+        $sql = mysql_query("INSERT INTO group_members (gid, userid, member_uid, fname, femail) VALUES ('".$lastid."', '".$_SESSION['userid']."', '".$_SESSION['userid']."', '".$_SESSION['name']."', '".$_SESSION['emailid']."')");
+
+       echo  $error = "Added Succesfully";
+    }
+}
+
+if(isset($_POST) && $_POST['mem_id'] != '')
+{
+    //print_r($_POST);
+    $sql = mysql_query("INSERT INTO group_members (gid, userid, member_uid, fname, femail) VALUES ('".$_POST['g_id']."', '".$_SESSION['userid']."', '".$_POST['mem_id']."', '".$_POST['mem_name']."', '".$_POST['mem_email']."')");
+     echo $error = "Added Succesfully";
+}
+
+if($_POST['d_id'] != '')
+{
+    $sql = mysql_query("delete from group_members where member_uid=".$_POST['d_id']." and gid= ".$_REQUEST['gid']."");
+    echo $error = "Deleted Succesfully";
+}
+
+if(isset($_POST) && $_POST['group_id'] != '')
+{
+    $createddate = date('Y-m-d h:i:s');
+    $sql = mysql_query("INSERT INTO bills (user_id, gid, bill_desc, bill_amount, emails, bill_date, created_date) VALUES ('".$_SESSION['userid']."', '".$_POST['group_id']."', '".$_POST['b_desc']."', '".$_POST['b_amount']."', '".$_POST['b_emailid']."', '".$_POST['bill_date']."', '".$createddate."')");
+     echo $error = "Added Succesfully";
+
+     $lastid = mysql_insert_id();
+
+
+     $emails = explode(",", $_POST['b_emailid']);
+
+     $no_of_emails =count($emails);
+     $amount = $_POST['b_amount']/$no_of_emails;
+
+     for($i=0; $i<count($emails); $i++)
+     {
+        $sql = mysql_query("INSERT INTO bill_users (b_id, b_email, b_amount, b_date) VALUES ('".$lastid."', '".$emails[$i]."', '".$amount."', '".$createddate."')");
+     }
+
+}
+
+if(isset($_POST) && $_POST['s_id'] != '')
+{
+   // print_r($_POST);
+    $sql = mysql_query("UPDATE settled_amount set status ='".$_POST['status']."' WHERE id ='".$_POST['s_id']."' ");
+    header("location:dashboard.php");
+    exit;
+}
+
+    $query = mysql_query("select * from user_friends where uid=".$_SESSION['userid']." and status=1");
+    $rows = mysql_num_rows($query);
+
+    $query1 = mysql_query("SELECT * FROM groups as g left join group_members as gm ON g.id=gm.gid WHERE gm.member_uid=".$_SESSION['userid']." OR g.user_id =".$_SESSION['userid']." group by g.group_name");
+    $rows1 = mysql_num_rows($query1);
+    //$res_array = mysql_fetch_assoc($query1);
+    //print_r($res_array);
+
+    $query_total = mysql_query("select SUM(bill_amount) as totalamount from bills where user_id=".$_SESSION['userid']."");
+    //$rows = mysql_num_rows($query_total);
+    $res_total_amount = mysql_fetch_assoc($query_total);
+
+
+    $received_query= mysql_query("SELECT SUM(amount) as tamount FROM `settled_amount` WHERE to_uid=".$_SESSION['userid']." and status='Accept'");
+    $f_amount_taken = mysql_fetch_assoc($received_query);
+
+    $pay_query= mysql_query("SELECT SUM(amount) as tamount FROM `settled_amount` WHERE from_uid=".$_SESSION['userid']." and status='Accept'");
+    $f_amount_pay = mysql_fetch_assoc($pay_query);
+
+$q= mysql_query("select * from bills where user_id =".$_SESSION['userid']." ");
+
+while($f_amount_given = mysql_fetch_assoc($q))
+{
+    //echo "<pre>";
+    //print_r($f_amount_given);
+    //$spent_amount1 =0;
+    $q_t_amount = mysql_query("select * from bill_users where b_id=".$f_amount_given['id']." and to_uid=".$_SESSION['userid']." ");
+    $f_amount = mysql_fetch_assoc($q_t_amount);
+
+    //print_r($f_amount);
+    //echo $f_amount['b_amount']."<br>";
+
+    $spent_amount = $f_amount['b_amount']+$spent_amount;
+
+}
+
+    $q1= mysql_query("select * from bills where user_id !=".$_SESSION['userid']." ");
+
+while($f_amount_given = mysql_fetch_assoc($q1))
+{
+    //echo "<pre>";
+    //print_r($f_amount_given);
+    //$spent_amount1 =0;
+    $q_t_amount = mysql_query("select * from bill_users where b_id=".$f_amount_given['id']." and to_uid=".$_SESSION['userid']." ");
+    $f_amount = mysql_fetch_assoc($q_t_amount);
+
+    //print_r($f_amount);
+    //echo $f_amount['b_amount']."<br>";
+
+     $spent_amount1 = $f_amount['b_amount']+$spent_amount1;
+
+}
+
+if($spent_amount >$spent_amount1)
+{
+     $tot_amount = $spent_amount-$spent_amount1;
+}
+else
+{
+    $tot_amount = $spent_amount1-$spent_amount;
+}
+
+
+if($f_amount_taken['tamount'] != '')
+     $new_tot= $tot_amount-$f_amount_taken['tamount'];
+else
+     $new_tot= $tot_amount;
+
+if($f_amount_pay['tamount'] != '')
+     $total_bill_amount= $new_tot-$f_amount_pay['tamount'];
+else
+    $total_bill_amount= $new_tot;
+
+//echo $res_total_amount['totalamount'];
+ $tot_you_rec= $spent_amount-$f_amount_taken['tamount'];
+
+ $tot_paid = $spent_amount1-$f_amount_pay['tamount'];
+
+
+
+?>
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+
+
+<meta charset="utf-8">
+<title>Share It</title>
+
+<link rel="stylesheet" type="text/css" href="css/adityastyles.css">
+
+
+<script src="js/jquery1.11.js"></script>
+<style type="text/css">
+.totalbillnotification1{
+    height: 74vh;
+    overflow: auto;}
+</style>
+</head>
+<body>
+<?php include("header.php"); ?>     
+<div class="dashboard">
+<?php include("left.php"); ?>
+<div class="notification">
+<?php if($_REQUEST['gid'] == '') { ?>
+<div class="addbillbutton">
+<a href="addbills.php" ><input type="button" id="addbillb" name="addbillb" value="Add Bill" class="addbillb" /></a>
+<a href="allexpenses.php"><input type="button" id="adexpense" name="adexpense" value="ALL EXPENSES" class="aexpense" /></a>
+</div> <?php } else { ?>
+<div class="addbillbutton">
+<a href="groupbills.php?gid=<?php echo $_REQUEST['gid']; ?>" ><input type="button" id="addbillb" name="addbillb" value="Add Bill" class="addbillb" /></a>
+<a href="allexpenses.php"><input type="button" id="adexpense" name="adexpense" value="ALL EXPENSES" class="aexpense" /></a>
+</div> <?php } ?>
+<div class="updates">
+<div class="totalupdates" style="display:none;">
+<div style="color:green;"><?php echo $error; ?></div>
+<div class="update">
+<img src="images/friendsicon.jpg" alt="Group image" class="peopleicon" />
+<p class="friendsname">Sujith</p>
+<p class="receiveamt">$5000</p>
+</div>
+<div class="update">
+<img src="images/friendsicon.jpg" alt="Group image" class="peopleicon" />
+<p class="friendsname">Suhas</p>
+<p class="receiveamt">$5000</p>
+</div>
+<div class="update">
+<img src="images/friendsicon.jpg" alt="Group image" class="peopleicon" />
+<p class="friendsname">Kalyan</p>
+<p class="payamt">$5000</p>
+</div>
+</div>
+<?php if($_REQUEST['gid'] == '') { ?>
+<div class="totalrecentactivity" style="display:block;"><!-- totalrecentactivity starts here -->
+<div class="totalbillnotification1"><!-- totalbillnotification starts here -->
+    <p class="billheadingtext">Bill Notification</p>
+    <?php
+    $bill_query= mysql_query("select * from settled_amount where to_uid=".$_SESSION['userid']." order by id desc");
+    $n_rows = mysql_num_rows($bill_query);
+    if($n_rows == 0)
+    {
+        echo "No Notifications";
+    }
+while($bill_notice =mysql_fetch_assoc($bill_query))
+{
+    $query = mysql_query("select * from users where id='".$bill_notice['from_uid']."'");
+    $rows = mysql_num_rows($query);
+    $f_result = mysql_fetch_assoc($query);
+
+    if($bill_notice['status'] == 'pending')
+    {
+    ?>
+    <form method="post" action="" name="nform" id="nform">
+    <input type="hidden" name="status" id="status" value="">
+    <input type="hidden" name="s_id" id="s_id" value="<?php echo $bill_notice['id'] ?>">
+    <div class="totalbilltext"><!-- totalbilltext starts here -->
+        <p class="paidnotificationtext"><?php echo $f_result['Name']; ?> paid You $<?php echo $bill_notice['amount']; ?></p>
+        <input type="submit" id="statusb" name="statusb" value="Decline" class="declineb" onclick="changestatus(this.value);" />
+        <input type="submit" id="statusb" name="statusb" value="Accept" class="acceptb" onclick="changestatus(this.value);"/>
+    </div><!-- totalbilltext ends here -->
+    </form>
+<?php } if($bill_notice['status'] == 'Accept') { ?>
+<div class="totalbilltext"><!-- totalbilltext starts here -->
+        <p class="paidnotificationtext">You Accepted <?php echo $f_result['Name']; ?> $<?php echo $bill_notice['amount']; ?></p>
+        <input type="button" id="statusb" name="statusb" value="Accepted" class="acceptedb" />
+    </div><!-- totalbilltext ends here -->
+
+<?php } if($bill_notice['status'] == 'Decline') { ?>
+
+   <div class="totalbilltext"><!-- totalbilltext starts here -->
+        <p class="paidnotificationtext">You Declined <?php echo $f_result['Name']; ?> $<?php echo $bill_notice['amount']; ?></p>
+        <input type="button" id="statusb" name="statusb" value="Declined" class="declinedb" />
+    </div><!-- totalbilltext ends here -->
+
+<?php }  }?>
+    
+    
+</div><!-- totalbillnotification ends here -->
+</div>
+<?php } ?>
+<!-- Add friend details -->
+<div class="totaladdfriend"><!-- totaladdfriend starts here -->
+<p class="addfriendheading">Add Friend</p>
+<form method="post" action="" name="form1" id="form1">
+<div class="totaladdfrienddetails"><!-- totaladdfrienddetails starts here -->
+<input type="text" id="fname" name="fname" placeholder="Enter Friends Name" class="friendsmailbox friendnamebox">
+<input type="text" id="femail" name="femail" placeholder="Enter Friends email id" class="friendsmailbox friendnamebox">
+<input type="submit"  value="Add" class="addfriendbox">
+<input type="button" value="Cancel" class="cancelfriendbox">
+</div><!-- totaladdfrienddetails ends here -->
+</form>
+</div><!-- totaladdfriend ends here -->
+
+
+<!-- Add Group details -->
+<div class="totaladdgroup"><!-- totaladdgroup starts here -->
+<p class="addfriendheading">Add Group</p>
+<form method="post" action="" name="form2" id="form2">
+<div class="totaladdfrienddetails"><!-- totaladdfrienddetails starts here -->
+<input type="text" id="groupname" name="groupname" placeholder="Enter Group Name" class="friendsmailbox">
+
+<input type="submit" id="" name="" value="Add" class="addfriendbox">
+<input type="submit" id="" name="" value="Cancel" class="cancelgroupbox">
+</div><!-- totaladdfrienddetails ends here -->
+</form>
+</div><!-- totaladdgroup ends here -->
+
+
+<!-- Recent Activity details -->
+<div class="totalrecentactivity"><!-- totalrecentactivity starts here -->
+<p class="addfriendheading">Recent Activity</p>
+<div class="totaladdfrienddetails"><!-- totaladdfrienddetails starts here -->
+<p class="recentactivitydata">Aditya added sujith</p>
+<p class="recentactivitydata">Aditya added sujith</p>
+<p class="recentactivitydata">Aditya added sujith</p>
+<input type="submit" id="" name="" value="Back" class="recentcancel">
+</div><!-- totaladdfrienddetails ends here -->
+</div><!-- totalrecentactivity ends here -->
+
+<!-- Group name click -->
+<?php
+if(isset($_REQUEST) && $_REQUEST['gid'] != '')
+{
+
+    $query1 = mysql_query("select * from groups where id=".$_REQUEST['gid']."");
+    $rows1 = mysql_num_rows($query1);
+    $res_group = mysql_fetch_assoc($query1);
+    //print_r($res_group);
+?>
+
+<div class="totalgroupnamedata" style="display:block;"><!-- totalgroupnamedata starts here -->
+<div class="totalgroupnameheadingdetails"><!-- totalgroupnameheadingdetails starts here -->
+<label class="groupnameheading">Group Name : </label>
+<input type="text" id="" name="" value="<?php echo $res_group['group_name']; ?>" readonly="readonly" class="groupnamedata" />
+<input type="button" id="" name="" value="Delete group" class="deletegroup" />
+</div><!-- totalgroupnameheadingdetails ends here -->
+<div class="totalmemberdetails"><!-- totalmemberdetails starts here -->
+<div class="totalmemberheading"><!-- totalmemberheading starts here -->
+<p class="groupmemberheading">Group Members</p>
+<!-- <p class="groupmemberaddtext">Add +</p> -->
+</div><!-- totalmemberheading ends here -->
+<?php 
+$query1 = mysql_query("SELECT * FROM group_members as gm, users as u WHERE gm.member_uid= u.id and gm.gid=".$_REQUEST['gid']." ");
+    $rows1 = mysql_num_rows($query1);
+    //$res_group_mem = mysql_fetch_assoc($query1);
+    if($rows1 ==0)
+    {
+        echo "No members";
+    }
+?>
+
+<?php 
+while($res_group_mem = mysql_fetch_assoc($query1))
+{
+   //print_r($res_group_mem);
+?>
+<form method="post" action="" name="delform" name="delform">
+<div class="totalsinglememberdata"><!-- totalsinglememberdata starts here -->
+<input type="hidden" name="d_id" id="d_id" value="<?php echo $res_group_mem['member_uid']; ?>">
+<p class="groupmembername"><?php echo $res_group_mem['Name']; ?></p>
+<p class="groupmemberemail"><?php echo $res_group_mem['femail']; ?></p>
+<input type="submit" id="" name="" value="Delete" class="deletemember" />
+</div><!-- totalsinglememberdata ends here -->
+</form>
+<?php } ?>
+
+<div class="totalmemberheading"><!-- totalmemberheading starts here -->
+<p class="groupmemberheading">Add Members</p>
+<!-- <p class="groupmemberaddtext">Add +</p> -->
+</div><!-- totalmemberheading ends here -->
+
+<?php 
+$query1 = mysql_query("SELECT * FROM user_friends as uf, users as u where uf.fuid NOT IN ( select member_uid from group_members where gid =".$_REQUEST['gid'].") and uf.fuid=u.id and uf.uid=".$_SESSION['userid']."");
+    $rows1 = mysql_num_rows($query1);
+    //$res_group_mem = mysql_fetch_assoc($query1);
+    if($rows1 == 0)
+    {
+        echo "No Members";
+    }
+?>
+
+<?php 
+while($res_group_mem = mysql_fetch_assoc($query1))
+{
+   // print_r($res_group_mem);
+
+?>
+<div class="totalsinglememberdata"><!-- totalsinglememberdata starts here -->
+<form method="post" action="">
+<input type="hidden" name="mem_name" id="mem_name" value="<?php echo $res_group_mem['Name']; ?>">
+<input type="hidden" name="mem_email" id="mem_email" value="<?php echo $res_group_mem['friend_email']; ?>">
+<input type="hidden" name="mem_id" id="mem_id" value="<?php echo $res_group_mem['fuid']; ?>">
+<input type="hidden" name="g_id" id="g_id" value="<?php echo $_REQUEST['gid']; ?>">
+
+<p class="groupmembername"><?php echo $res_group_mem['friend_name']; ?></p>
+<p class="groupmemberemail"><?php echo $res_group_mem['friend_email']; ?></p>
+<input type="submit" id="" name="" value="Add" class="addnewmembergroup" />
+</form>
+</div><!-- totalsinglememberdata ends here -->
+<?php }  ?>
+
+
+
+</div><!-- totalmemberdetails ends here -->    
+</div><!-- totalgroupnamedata ends here -->
+<?php } ?>
+<!-- Add Bill Pop UP -->
+<?php 
+$query12 = mysql_query("SELECT * FROM  group_members WHERE gid= ".$_REQUEST['gid']." and femail != '".$_SESSION['emailid']."' ");
+    $rows1 = mysql_num_rows($query12);
+    while($emails_ids = mysql_fetch_assoc($query12))
+    {
+        $m_email_id .= $emails_ids['femail'].",";
+    }
+?>
+<form method="post" action="" name="b_form" id="b_form">
+<input type="hidden" name="group_id" value="<?php echo $_REQUEST['gid']; ?>">
+<div id="adbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+<input type="text" id="b_emailid" name="b_emailid" value="<?php echo substr($m_email_id, 0, -1); ?>" placeholder="User Email" class="billpersonname" />
+<input type="text" id="b_desc" name="b_desc" placeholder="Enter Description" class="billpersonname" />
+<input type="text" id="b_amount" name="b_amount" placeholder="Enter Amount" class="billpersonname" />
+<input type="date" id="bill_date" name="bill_date" placeholder="Enter date" class="billpersonname datebox" />
+
+<input type="submit" id="paddbill" name="paddbill" value="Add Bill" class="paddbill">
+<input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="pcancelbill">
+
+</div><!-- addbillpopup ends here -->
+</form>
+<div id="screen" onClick="addbillclose();"></div>   
+
+</div>
+
+
+
+                            
+                            
+<img src="images/reportsimg.png" alt="Report image" class="reportimg" />
+                            
+</div>
+</div>
+</div>
+    
+</body>
+</html>
+<script type="text/javascript">
+
+function changestatus(s_val)
+{
+    alert(s_val);
+    $("#status").val(s_val);
+    document.nform.submit();
+}
+
+$(document).ready(function () {
+    $('.totalaccountlinks').click(function(){
+         $('.accountlinks').slideToggle(300);
+    });
+});
+
+
+$('document').ready(function(){
+
+            $('#b_form').validate({
+                    rules:{
+                       
+                        "group_name":{
+                            required:true
+                        },
+                        "b_desc":{
+                            required:true,
+                        },
+                        "b_amount":{
+                            required:true,
+                            number: true
+                        }},
+
+
+
+                    messages:{
+                        
+                        "group_name":{
+                            required:"<span class='error1'>This field is required</span>"
+                        },
+                        "b_desc":{
+                            required:"<span class='error1'>This field is required</span>"
+                        },
+                        "b_amount":{
+                            required:"<span class='error1'>This field is required</span>"
+                        }},
+
+                    submitHandler: function(form){
+                      $(form).ajaxSubmit({
+       success: function() {
+       //$("#successMessage").show();
+       //$('#form1')[0].reset();
+        }
+    }); 
+            
+                    }
+                
+            })
+                        
+        });
+
+
+$('document').ready(function(){
+
+            $('#form1').validate({
+                    rules:{
+                       
+                        "fname":{
+                            required:true
+                        },
+                        "femail":{
+                            required:true,
+                            email: true
+                        }},
+
+
+
+                    messages:{
+                        
+                        "fname":{
+                            required:"<span class='error1'>This field is required</span>"
+                        },
+
+                        "femail":{
+                            required:"<span class='error2'>This field is required</span>"
+                        }},
+
+                    submitHandler: function(form){
+                      $(form).ajaxSubmit({
+       success: function() {
+       $("#successMessage").show();
+       $('#form1')[0].reset();
+        }
+    }); 
+            
+                    }
+                
+            })
+                        
+        });
+
+
+$('document').ready(function(){
+
+            $('#form2').validate({
+                    rules:{
+                       
+                        "groupname":{
+                            required:true
+                        }},
+
+
+
+                    messages:{
+                        
+                        "groupname":{
+                            required:"<span class='error3'>This field is required</span>"
+                        }},
+
+                    submitHandler: function(form){
+                      $(form).ajaxSubmit({
+       success: function() {
+       $("#successMessage").show();
+       $('#form2')[0].reset();
+        }
+    }); 
+            
+                    }
+                
+            })
+                        
+        });
+
+
+$('document').ready(function(){
+
+            $('#gform').validate({
+                    rules:{
+                       
+                        "groupname":{
+                            required:true
+                        }},
+
+
+
+                    messages:{
+                        
+                        "groupname":{
+                            required:"<span class='error3'>This field is required</span>"
+                        }},
+
+                    submitHandler: function(form){
+                      $(form).ajaxSubmit({
+       success: function() {
+       $("#successMessage").show();
+       $('#form2')[0].reset();
+        }
+    }); 
+            
+                    }
+                
+            })
+                        
+        });
+</script>
+
+<!-- Add Friend Script -->
+<script type="text/javascript">
+$(document).ready(function () {
+    $('.addfriends').click(function(){
+         $('.totalupdates, .totaladdgroup').hide();
+         $('.totaladdfriend').show();
+    });
+    $('h1, .cancelfriendbox').click(function(){
+         $('.totalupdates').show();
+         $('.totaladdfriend').hide();
+    });
+    $('.deletemember').click(function(){
+    
+    var r = confirm("Are you sure you want to remove this Member");
+    if (r == true)
+    {
+        document.delform.submit();
+    }
+    else
+    {
+        return false;
+    }
+
+    });
+});
+</script>
+
+<!-- Add Group Script -->
+
+<script type="text/javascript">
+$(document).ready(function () {
+    $('.addgroupstext').click(function(){
+         $('.totalupdates, .totaladdfriend').hide();
+         $('.totaladdgroup').show();
+    });
+    $('h1, .cancelgroupbox').click(function(){
+         $('.totalupdates').show();
+         $('.totaladdgroup').hide();
+    });
+});
+</script>
+
+<!-- Recent Activity Script -->
+
+<script type="text/javascript">
+$(document).ready(function () {
+    $('.recentactivitytext').click(function(){
+         $('.totalupdates, .totaladdfriend, .totaladdgroup').hide();
+         $('.totalrecentactivity').show();
+    });
+    $('h1, .recentcancel').click(function(){
+         $('.totalupdates').show();
+         $('.totalrecentactivity').hide();
+    });
+});
+</script>
+
+<!-- group name click -->
+
+<script type="text/javascript">
+$(document).ready(function () {
+    $('.groupslist').click(function(){
+         $('.totalupdates, .totaladdfriend, .totaladdgroup, .totalrecentactivity').hide();
+         //$('.totalgroupnamedata').show();
+    });
+    $('h1, .cancelgroupmemberbox').click(function(){
+         $('.totalupdates').show();
+         $('.totalgroupnamedata').hide();
+    });
+});
+
+// code to check the add friend validation
+function getemailids(val)
+{
+    //alert(val);
+    $.post( "ajax.php", { group_id: val })
+  .done(function( data ) {
+    //alert(data);
+    $('#b_emailid').val(data);
+    
+  });
+}
+
+function checkEmail(email) {
+var regExp = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+return regExp.test(email);
+}
+
+function suggest(searchtxt)
+{
+   if(searchtxt == '')
+   {
+        $("#oldlist").show();
+        $("#newlist").hide();
+   }
+   else
+   {
+    $("#oldlist").hide();
+    $.post( "ajax.php", { searchtxt: searchtxt })
+  .done(function( data ) {
+    //alert( "Data Loaded: " + data );
+    //alert(data);
+    $("#newlist").html(data);
+    
+  });
+}
+}
+
+function suggest_group(grouptxt)
+{
+    if(grouptxt == '')
+   {
+        $("#oldgroup").show();
+        $("#newgroup").hide();
+   }
+   else
+   {
+    $("#oldgroup").hide();
+    $.post( "ajax.php", { grouptxt: grouptxt })
+  .done(function( data ) {
+    //alert( "Data Loaded: " + data );
+    //alert(data);
+    $("#newgroup").html(data);
+    
+  });
+}
+}
+
+function deletefrnd(fid)
+{
+    var r = confirm("Are you sure you want to delete this friend");
+    if (r == true)
+    {
+
+        $.post( "ajax.php", { fid: fid })
+  .done(function( data ) {
+    //alert( "Data Loaded: " + data );
+    //alert(data);
+    $('#tfriendslist'+fid).hide();
+    location.reload();
+    
+  });
+    }
+
+}
+</script>
+
+<!-- Poup Script -->
+
+<script type="text/javascript">
+window.document.onkeydown = function (e)
+{
+    if (!e){
+        e = event;
+    }
+    if (e.keyCode == 27){
+        addbillclose();
+    }
+}
+function addbill(){
+    window.scrollTo(0,0);
+    document.getElementById('adbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function addbillclose(){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+$('.pcancelbill').click(function (){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+</script>
+<script type="text/javascript" src="js/jquery.validate.js"></script>
+
+Addbill:
+<?php
+error_reporting(0);
+include('dbconnect.php');
+session_start();
+    //$res_array = mysql_fetch_assoc($query);
+    //print_r($res_array);
+if(isset($_POST) && $_POST['b_amount'] != '')
+{
+    //print_r($_POST);exit;
+
+    
+
+    $createddate = date('Y-m-d h:i:s');
+    $sql = mysql_query("INSERT INTO bills (user_id, gid, group_name, bill_desc, bill_amount, emails, bill_date, created_date) VALUES ('".$_SESSION['userid']."', '-', '-', '".$_POST['b_desc']."', '".$_POST['b_amount']."', '-', '".$_POST['bill_date']."', '".$createddate."')");
+     $error = "Added Succesfully";
+
+     $lastid = mysql_insert_id();
+
+     $no_of_emails =count($_POST['friends']);
+     $amount = round($_POST['b_amount']/$no_of_emails);
+
+     for($i=0; $i<count($_POST['friends']); $i++)
+     {
+        list($a, $b)= explode("-", $_POST['friends'][$i]);
+
+        $sql = mysql_query("INSERT INTO bill_users (b_id, from_uid, to_uid, b_email, b_amount, b_date) VALUES ('".$lastid."', '".$_SESSION['userid']."', '".$a."', '".$b."', '".$amount."', '".$createddate."')");
+        //echo $b."<br>";
+        $sql = mysql_query("INSERT INTO bill_users (b_id, from_uid, to_uid, b_email, b_amount, b_date) VALUES ('".$lastid."', '".$a."', '".$_SESSION['userid']."', '".$_SESSION['emailid']."', '".$amount."', '".$createddate."')");
+     }
+
+     header("location:dashboard.php");
+     exit;
+     //print_r($_POST['friends']);exit;
+}
+
+?>
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+
+
+<meta charset="utf-8">
+<title>Share It</title>
+
+<link rel="stylesheet" type="text/css" href="css/adityastyles.css">
+
+
+<script src="js/jquery1.11.js"></script>
+
+</head>
+<body>
+<?php include("header.php"); ?>      
+<div class="dashboard">
+
+<div class="rightdashboard friendsdetails">
+<!-- <div class="amountdetails friendsamountdetails">
+<div class="amounttext">
+<p class="amountheading">Total Amount</p>
+<p class="amountdata">$12000</p>
+</div>                        
+<div class="amounttext">
+<p class="amountheading">You Receive</p>
+<p class="amountdata amountreceive">$16000</p>
+</div>                                      
+<div class="amounttext1">
+<p class="amountheading">You Pay</p>
+<p class="amountdata amountpay">$4000</p>
+</div>
+</div> -->
+<div class="notification">
+
+<div class="totaladdbills">
+<div class="totalupdates">
+<form method="post" action="" name="form1" id="form1">
+
+
+<input type="text" id="b_desc" name="b_desc" placeholder="Enter Description" class="abillpersonname" /><br/>
+<input type="text" id="b_amount" name="b_amount" placeholder="Enter Amount" class="abillamountname" /><br/>
+<input type="date" id="bill_date" name="bill_date" placeholder="dd-mm-yyyy" class="abilldatename datebox" /><br/>
+<div class="totalsinglename">
+<input type="checkbox" name="friends[]" class="addbillfriendslist" value="<?php echo $_SESSION['userid']."-".$_SESSION['emailid']; ?>"> <?php echo $_SESSION['name'].", ".$_SESSION['emailid']; ?>
+</div>
+<?php 
+$query = mysql_query("select * from user_friends where uid=".$_SESSION['userid']." and status=1");
+    $rows = mysql_num_rows($query);
+    while($result = mysql_fetch_assoc($query))
+    { ?>
+
+    <div class="totalsinglename">
+    
+        <input type="checkbox" name="friends[]" class="addbillfriendslist" value="<?php echo $result['fuid']."-".$result['friend_email']; ?>"> <?php echo $result['friend_name'].", ".$result['friend_email']; ?>
+    </div>
+
+  <?php  }
+?><br/>
+<input type="submit" id="paddbill" name="paddbill" value="Add Bill" class="addpaddbill">
+<a href="dashboard.php"><input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="addpcancelbill"></a>
+
+</form>
+
+
+
+</div>
+
+</div>
+
+
+<!-- Add Bill Pop UP -->
+
+       <div id="adbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter User Name" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter User Email" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Description" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname" />
+            <input type="date" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname datebox" />
+            <input type="submit" id="paddbill" name="paddbill" value="Add Bill" class="paddbill">
+            <input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="pcancelbill">
+
+       </div><!-- addbillpopup ends here -->
+
+       <!-- Settleup Bill Pop UP -->
+
+       <div id="settleupbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+            <input type="text" id="billpersonname" name="billpersonemail" value="Sujith" class="billpersonname bnperson" disabled />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname" />
+            <input type="submit" id="paddbill" name="paddbill" value="Settle Up" class="paddbill settleupbillb">
+            <input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="scancelbill">
+
+       </div><!-- addbillpopup ends here -->
+            <div id="screen" onClick="addbillclose();"></div> 
+            <div id="screen1" onClick="settleupbillpoupclose();"></div>     
+
+                            
+</div>
+</div>
+</div>
+    
+</body>
+</html>
+<script type="text/javascript">
+$(document).ready(function () {
+	$('.totalaccountlinks').click(function(){
+         $('.accountlinks').slideToggle(300);
+    });
+});
+</script>
+
+
+<!-- Poup Script -->
+
+<script type="text/javascript">
+window.document.onkeydown = function (e)
+{
+    if (!e){
+        e = event;
+    }
+    if (e.keyCode == 27){
+        addbillclose();
+        settleupbillpoupclose();
+    }
+}
+function addbill(){
+    window.scrollTo(0,0);
+    document.getElementById('adbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function addbillclose(){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+function settleupbillpoupclose(){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen1').style.display='none';
+}
+$('.pcancelbill').click(function (){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+function settleupbill(){
+    window.scrollTo(0,0);
+    document.getElementById('settleupbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function settleupbillclose(){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+$('.scancelbill').click(function (){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+</script>
+
+Groupbills:
+<?php     // By Suhas
+error_reporting(0);
+include('dbconnect.php');
+session_start();
+    //$res_array = mysql_fetch_assoc($query);
+    //print_r($res_array);..
+if(isset($_POST) && $_POST['group_id'] != '')
+{
+    $query = mysql_query("select group_name from groups where id=".$_POST['group_id']." ");
+    $rows = mysql_num_rows($query);
+    $group_name = mysql_fetch_assoc($query);
+
+    $createddate = date('Y-m-d h:i:s');
+    $sql = mysql_query("INSERT INTO bills (user_id, gid, group_name, bill_desc, bill_amount, emails, bill_date, created_date) VALUES ('".$_SESSION['userid']."', '".$_POST['group_id']."', '".$group_name['group_name']."', '".$_POST['b_desc']."', '".$_POST['b_amount']."', '-', '".$_POST['bill_date']."', '".$createddate."')");
+     echo $error = "Added Succesfully";
+
+     $lastid = mysql_insert_id();
+
+
+     $no_of_emails =count($_POST['friends']);
+     $amount = round($_POST['b_amount']/$no_of_emails);
+
+     for($i=0; $i<count($_POST['friends']); $i++)
+     {
+
+        list($a, $b)= explode("-", $_POST['friends'][$i]);
+        $sql = mysql_query("INSERT INTO bill_users (b_id, from_uid, to_uid, b_email, b_amount, b_date) VALUES ('".$lastid."', '".$_SESSION['userid']."', '".$a."', '".$b."', '".$amount."', '".$createddate."')");
+
+        $sql = mysql_query("INSERT INTO bill_users (b_id, from_uid, to_uid, b_email, b_amount, b_date) VALUES ('".$lastid."', '".$a."', '".$_SESSION['userid']."', '".$_SESSION['emailid']."', '".$amount."', '".$createddate."')");
+     }
+
+     header("location:dashboard.php");
+     exit;
+
+}
+
+?>
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+
+
+<meta charset="utf-8">
+<title>Share It</title>
+
+<link rel="stylesheet" type="text/css" href="css/adityastyles.css">
+
+
+<script src="js/jquery1.11.js"></script>
+
+</head>
+<body>
+<?php include("header.php"); ?>      
+<div class="dashboard">
+
+<!-- <div class="rightdashboard friendsdetails">
+<div class="amountdetails friendsamountdetails">
+<div class="amounttext">
+<p class="amountheading">Total Amount</p>
+<p class="amountdata">$12000</p>
+</div>                        
+<div class="amounttext">
+<p class="amountheading">You Receive</p>
+<p class="amountdata amountreceive">$16000</p>
+</div>                                      
+<div class="amounttext1">
+<p class="amountheading">You Pay</p>
+<p class="amountdata amountpay">$4000</p>
+</div>
+</div> -->
+<div class="notification">
+
+<div class="totaladdbills">
+<div class="totalupdates">
+<form method="post" action="" name="b_form" id="b_form">
+
+
+<input type="hidden" name="group_id" value="<?php echo $_REQUEST['gid']; ?>">
+
+<input type="text" id="b_desc" name="b_desc" placeholder="Enter Description" class="abillpersonname" /><br />
+<input type="text" id="b_amount" name="b_amount" placeholder="Enter Amount" class="abillamountname" /><br />
+<input type="date" id="bill_date" name="bill_date" placeholder="Enter date" class="abilldatename datebox" /><br />
+<?php 
+$query12 = mysql_query("SELECT * FROM  group_members WHERE gid= ".$_REQUEST['gid']." ");
+    $rows1 = mysql_num_rows($query12);
+    while($emails_ids = mysql_fetch_assoc($query12))
+    { ?>
+<div class="totalsinglename">
+    <input type="checkbox" name="friends[]" checked="checked" value="<?php echo $emails_ids['member_uid']."-".$emails_ids['femail']; ?>"> <?php echo $emails_ids['fname'].", ".$emails_ids['femail']; ?>
+</div>
+  <?php  }
+?><br />
+<input type="submit" id="paddbill" name="paddbill" value="Add Bill" class="addpaddbill">
+<a href="dashboard.php"><input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="addpcancelbill"></a>
+
+</form>
+
+
+
+
+</div>
+
+</div>
+
+
+<!-- Add Bill Pop UP -->
+
+       <div id="adbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter User Name" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter User Email" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Description" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname" />
+            <input type="date" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname datebox" />
+            <input type="submit" id="paddbill" name="paddbill" value="Add Bill" class="paddbill">
+            <input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="pcancelbill">
+
+       </div><!-- addbillpopup ends here -->
+
+       <!-- Settleup Bill Pop UP -->
+
+       <div id="settleupbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+            <input type="text" id="billpersonname" name="billpersonemail" value="Sujith" class="billpersonname bnperson" disabled />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname" />
+            <input type="submit" id="paddbill" name="paddbill" value="Settle Up" class="paddbill settleupbillb">
+            <input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="scancelbill">
+
+       </div><!-- addbillpopup ends here -->
+            <div id="screen" onClick="addbillclose();"></div> 
+            <div id="screen1" onClick="settleupbillpoupclose();"></div>     
+
+                            
+</div>
+</div>
+</div>
+    
+</body>
+</html>
+<script type="text/javascript">
+$(document).ready(function () {
+	$('.totalaccountlinks').click(function(){
+         $('.accountlinks').slideToggle(300);
+    });
+});
+</script>
+
+
+<!-- Poup Script -->
+
+<script type="text/javascript">
+window.document.onkeydown = function (e)
+{
+    if (!e){
+        e = event;
+    }
+    if (e.keyCode == 27){
+        addbillclose();
+        settleupbillpoupclose();
+    }
+}
+function addbill(){
+    window.scrollTo(0,0);
+    document.getElementById('adbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function addbillclose(){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+function settleupbillpoupclose(){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen1').style.display='none';
+}
+$('.pcancelbill').click(function (){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+function settleupbill(){
+    window.scrollTo(0,0);
+    document.getElementById('settleupbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function settleupbillclose(){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+$('.scancelbill').click(function (){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+</script>
+
+Frienddetails:
+<?php			
+error_reporting(0);
+include('dbconnect.php');
+session_start();
+    //$res_array = mysql_fetch_assoc($query);
+    //print_r($res_array);
+
+$query = mysql_query("select * from users where id='".$_REQUEST['uid']."'");
+    $rows = mysql_num_rows($query);
+    $f_result = mysql_fetch_assoc($query);
+//echo $_REQUEST['uid'];  
+
+if(isset($_POST) && $_POST['to_uid'] != '')
+{
+    $settled_date = date('Y-m-d h:i:s');
+    $sql = mysql_query("INSERT INTO settled_amount (to_uid, from_uid, amount, status, settled_date) VALUES ('".$_POST['to_uid']."', '".$_SESSION['userid']."', '".$_POST['amount']."', 'pending', '".$settled_date."')");
+    echo $error = "Settled up Successfully. Your Status Pending";
+}
+
+$q= mysql_query("select * from bills where user_id=".$_SESSION['userid']." ");
+
+while($f_amount_given = mysql_fetch_assoc($q))
+{
+    $q_t_amount = mysql_query("select * from bill_users where b_id=".$f_amount_given['id']." ");
+    $f_amount = mysql_fetch_assoc($q_t_amount);
+
+    $spent_amount = $f_amount['b_amount']+$spent_amount;
+
+}
+
+$q1= mysql_query("select * from bills where user_id=".$_REQUEST['uid']." ");
+
+while($f_amount_given = mysql_fetch_assoc($q1))
+{
+    //print_r($f_amount_given);
+    $spent_amount1 =0;
+    $q_t_amount = mysql_query("select * from bill_users where b_id=".$f_amount_given['id']." ");
+    $f_amount = mysql_fetch_assoc($q_t_amount);
+
+    //print_r($f_amount);
+    //echo $f_amount['b_amount'];
+
+    $spent_amount1 = $f_amount['b_amount']+$spent_amount1;
+//echo $spent_amount1;
+}
+
+
+
+
+$query11 = mysql_query("SELECT * FROM bill_users as bu LEFT JOIN bills as b ON b.id=bu.b_id where bu.from_uid=".$_SESSION['userid']." and bu.to_uid=".$_REQUEST['uid']." order by b.bill_date desc");
+$rows = mysql_num_rows($query11);
+
+$bill_query= mysql_query("select * from settled_amount where to_uid=".$_REQUEST['uid']." order by id desc");
+
+$received_query= mysql_query("SELECT SUM(amount) as tamount FROM `settled_amount` WHERE to_uid=".$_SESSION['userid']." and from_uid=".$_REQUEST['uid']." and status='Accept'");
+$f_amount_taken = mysql_fetch_assoc($received_query);
+
+$pay_query= mysql_query("SELECT SUM(amount) as tamount FROM `settled_amount` WHERE to_uid=".$_REQUEST['uid']." and from_uid=".$_SESSION['userid']." and status='Accept'");
+$f_amount_pay = mysql_fetch_assoc($pay_query);
+
+
+
+
+?>
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+
+
+<meta charset="utf-8">
+<title>Share It</title>
+
+<link rel="stylesheet" type="text/css" href="css/adityastyles.css">
+
+
+<script src="js/jquery1.11.js"></script>
+
+</head>
+<body>
+<?php include("header.php"); ?>      
+<div class="dashboard">
+
+<div class="rightdashboard friendsdetails">
+<div class="amountdetails friendsamountdetails">
+<div class="amounttext">
+<p class="amountheading">Total Amount</p>
+<p class="amountdata">$ <?php if($spent_amount != '' || $spent_amount1 !='') echo $spent_amount-$spent_amount1-$f_amount_taken['tamount']; else echo 0; ?></p>
+</div>                        
+<div class="amounttext">
+<p class="amountheading">You Receive</p>
+<p class="amountdata amountreceive">$ <?php if($f_amount_taken['tamount'] != '') echo $f_amount_taken['tamount']; else echo 0; ?></p>
+</div>                                      
+<div class="amounttext1">
+<p class="amountheading">You Pay</p>
+<p class="amountdata amountpay">$ <?php if($f_amount_pay['tamount'] != '') echo $f_amount_pay['tamount']; else echo 0; ?></p>
+</div>
+</div>
+<div class="notification">
+<div class="addbillbutton">
+<a href="javascript:void(0)" onclick="settleupbill();" ><input type="button" id="settleupb" name="settleupb" value="Settle Up" class="settleupb" /></a>
+<a href="addbills.php" ><input type="button" id="addbillb" name="addbillb" value="Add Bill" class="addbillb" /></a>
+</div>
+<div class="updates">
+<div class="totalupdates">
+<?php
+while($res_array12 = mysql_fetch_assoc($query11))
+{
+?>
+<div class="update friendbill">
+<p class="billdate"><?php echo $res_array12['bill_date']; ?></p>
+<p class="billdescription"><?php echo $res_array12['bill_desc']; if($res_array12['group_name'] != '-') { echo " in ".$res_array12['group_name']." group"; } ?></p>
+<?php 
+if($res_array12['user_id'] == $_REQUEST['uid'])
+{
+?>
+<p class="payamt">$<?php echo $res_array12['b_amount']; ?></p>
+<?php } else {?>
+<p class="receiveamt">$<?php echo $res_array12['b_amount']; ?></p>
+<?php } ?>
+</div>
+<?php } ?>
+
+</div>
+
+</div>
+<div class="totalbillnotification"><!-- totalbillnotification starts here -->
+    <p class="billheadingtext">Bill Notification</p>
+    <?php
+while($bill_notice =mysql_fetch_assoc($bill_query))
+{
+    if($bill_notice['status'] == 'pending')
+    {
+    ?>
+    <div class="totalbilltext"><!-- totalbilltext starts here -->
+        <p class="paidnotificationtext">You paid <?php echo $f_result['Name']; ?> $<?php echo $bill_notice['amount']; ?></p>
+        <input type="button" id="statusb" name="statusb" value="Pending" class="statusb" />
+    </div><!-- totalbilltext ends here -->
+<?php } if($bill_notice['status'] == 'Accept') { ?>
+<div class="totalbilltext"><!-- totalbilltext starts here -->
+        <p class="paidnotificationtext"><?php echo $f_result['Name']; ?> Accepted Your $<?php echo $bill_notice['amount']; ?></p>
+        <input type="button" id="statusb" name="statusb" value="Accepted" class="acceptedb" />
+    </div><!-- totalbilltext ends here -->
+
+<?php } if($bill_notice['status'] == 'Decline') { ?>
+
+   <div class="totalbilltext"><!-- totalbilltext starts here -->
+        <p class="paidnotificationtext"><?php echo $f_result['Name']; ?> Declined your $<?php echo $bill_notice['amount']; ?></p>
+        <input type="button" id="statusb" name="statusb" value="Declined" class="declinedb" />
+    </div><!-- totalbilltext ends here -->
+
+<?php }  }?>
+    
+    
+</div><!-- totalbillnotification ends here -->
+
+<!-- Add Bill Pop UP -->
+
+       <div id="adbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter User Name" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter User Email" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Description" class="billpersonname" />
+            <input type="text" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname" />
+            <input type="date" id="billpersonname" name="billpersonemail" placeholder="Enter Amount" class="billpersonname datebox" />
+            <input type="submit" id="paddbill" name="paddbill" value="Add Bill" class="paddbill">
+            <input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="pcancelbill">
+
+       </div><!-- addbillpopup ends here -->
+
+       <!-- Settleup Bill Pop UP -->
+
+       <div id="settleupbillpoup" class="totalloginpopupdata"><!-- addbillpopup starts here -->
+       <form method="post" action="">
+       <input type="hidden" name="to_uid" value="<?php echo $_REQUEST['uid']; ?>">
+            <input type="text" id="to_uname" name="to_uname" value="<?php echo $f_result['Name']; ?>" class="billpersonname bnperson" disabled />
+            <input type="text" id="amount" name="amount" placeholder="Enter Amount" class="billpersonname" />
+            <input type="submit" id="paddbill" name="paddbill" value="Settle Up" class="paddbill settleupbillb">
+            <input type="button" id="pcancelbill" name="pcancelbill" value="Cancel Bill" class="scancelbill">
+        </form>
+       </div><!-- addbillpopup ends here -->
+            <div id="screen" onClick="addbillclose();"></div> 
+            <div id="screen1" onClick="settleupbillpoupclose();"></div>     
+
+                            
+</div>
+</div>
+</div>
+    
+</body>
+</html>
+<script type="text/javascript">
+$(document).ready(function () {
+	$('.totalaccountlinks').click(function(){
+         $('.accountlinks').slideToggle(300);
+    });
+});
+</script>
+
+
+<!-- Poup Script -->
+
+<script type="text/javascript">
+window.document.onkeydown = function (e)
+{
+    if (!e){
+        e = event;
+    }
+    if (e.keyCode == 27){
+        addbillclose();
+        settleupbillpoupclose();
+    }
+}
+function addbill(){
+    window.scrollTo(0,0);
+    document.getElementById('adbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function addbillclose(){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+function settleupbillpoupclose(){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen1').style.display='none';
+}
+$('.pcancelbill').click(function (){
+    document.getElementById('adbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+function settleupbill(){
+    window.scrollTo(0,0);
+    document.getElementById('settleupbillpoup').style.display='block';
+    document.getElementById('screen').style.display='block';
+}
+function settleupbillclose(){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+}
+$('.scancelbill').click(function (){
+    document.getElementById('settleupbillpoup').style.display='none';
+    document.getElementById('screen').style.display='none';
+});
+</script>
+
+Ajax:
+
+<?php
+error_reporting(0);
+include('dbconnect.php');
+session_start();
+//print_r($_POST);
+if($_POST['searchtxt'] !='')
+{
+$query = mysql_query("select * from user_friends WHERE (friend_name like '%".$_POST['searchtxt']."%') and uid=".$_SESSION['userid']."");
+$rows = mysql_num_rows($query);
+if($rows >0)
+{
+while($result1 = mysql_fetch_assoc($query)) {
+$res .= '<div class="tfriendslist" id="tfriendslist'.$result1['id'].'">
+<a href="friendsdetails.php"><img src="images/friendsicon.jpg" alt="Group image" class="groupicon" />
+<p class="addfriendsname">'.$result1['friend_name'].'</p></a>
+<img src="images/deletefrnd.png" alt="Group image" class="deletefrndimg" onclick="deletefrnd('.$result1['id'].');" />
+</div>';
+ } 
+}
+else
+{
+	$res= "No Results found.";
+}
+
+ echo $res;
+// return $res;
+}
+
+if($_POST['grouptxt'] !='')
+{
+$query = mysql_query("select * from groups WHERE (group_name like '%".$_POST['grouptxt']."%') and user_id=".$_SESSION['userid']."");
+$rows = mysql_num_rows($query);
+if($rows >0)
+{
+while($result1 = mysql_fetch_assoc($query)) {
+$res .= '<div class="groupslist">
+<img src="images/groupsicon.jpg" alt="Group image" class="groupicon" />
+<p class="groupname">'.$result1['group_name'].'</p>
+</div>';
+ } 
+}
+else
+{
+	$res= "No Results found.";
+}
+
+ echo $res;
+// return $res;
+}
+
+if($_POST['fid'] != '')
+{
+	mysql_query("delete from user_friends WHERE id=".$_POST['fid']."");
+	echo "success";
+}
+
+if($_POST['group_id'] != '')
+{
+	$query = mysql_query("select * from group_members where gid=".$_POST['group_id']." ");
+	$rows = mysql_num_rows($query);
+	while($res_group_mem = mysql_fetch_assoc($query))
+	{
+		$res .= $res_group_mem['femail'].',';
+	}
+
+	$res = substr($res, 0, -1);
+echo $res;
+}
+?>
